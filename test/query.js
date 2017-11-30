@@ -16,7 +16,7 @@
 
 'use strict'
 
-/* global expect, describe, it, before, after, context */
+/* global expect, describe, it, beforeEach, before, after, context */
 
 const Aerospike = require('../lib/aerospike')
 const Query = require('../lib/query')
@@ -129,6 +129,7 @@ describe('Queries', function () {
       var set = 'demo'
       var options = {
         select: ['a', 'b', 'c'],
+        nobins: false,
         filters: [Aerospike.filter.equal('a', 9)]
       }
       var query = client.query(namespace, set, options)
@@ -137,6 +138,7 @@ describe('Queries', function () {
       expect(query.ns).to.equal('test')
       expect(query.set).to.equal('demo')
       expect(query.selected).to.eql(['a', 'b', 'c'])
+      expect(query.nobins).to.equal(false)
       expect(query.filters).to.be.an(Array)
       expect(query.filters.length).to.equal(1)
     })
@@ -191,11 +193,14 @@ describe('Queries', function () {
     })
 
     it('returns the key if it was stored on the server', function (done) {
-      var uniqueKey = 'test/query/record_with_stored_key'
-      var key = new Aerospike.Key(helper.namespace, testSet, uniqueKey)
-      var record = { name: uniqueKey }
-      var meta = { ttl: 300 }
-      var policy = { key: Aerospike.policy.key.SEND }
+      let uniqueKey = 'test/query/record_with_stored_key'
+      let key = new Aerospike.Key(helper.namespace, testSet, uniqueKey)
+      let record = { name: uniqueKey }
+      let meta = { ttl: 300 }
+      let policy = new Aerospike.WritePolicy({
+        key: Aerospike.policy.key.SEND
+      })
+
       client.put(key, record, meta, policy, function (err) {
         if (err) throw err
         var query = client.query(helper.namespace, testSet)
@@ -211,15 +216,60 @@ describe('Queries', function () {
       })
     })
 
+    context('with nobins set to true', function () {
+      beforeEach(function () {
+        if (!helper.cluster.build_gte('3.15.0')) {
+          this.skip('query with nobins flag not supported')
+        }
+      })
+
+      it('should return only meta data', function (done) {
+        var query = client.query(helper.namespace, testSet)
+        query.where(Aerospike.filter.equal('i', 5))
+        query.nobins = true
+        var received = null
+        var stream = query.foreach()
+        stream.on('error', error => { throw error })
+        stream.on('data', record => {
+          received = record
+          stream.abort()
+        })
+        stream.on('end', () => {
+          expect(received.bins).to.be.empty()
+          expect(received.gen).to.be.ok()
+          expect(received.ttl).to.be.ok()
+          done()
+        })
+      })
+    })
+
     it('should raise client errors asynchronously', function (done) {
-      var query = client.query('test')
-      var invalidPolicy = {timeout: 'not a valid timeout'}
-      var stream = query.foreach(invalidPolicy)
+      let invalidPolicy = new Aerospike.QueryPolicy({
+        totalTimeout: 'not a valid timeout'
+      })
+
+      let query = client.query('test')
+      let stream = query.foreach(invalidPolicy)
       // if error is raised synchronously we will never reach here
       stream.on('error', error => {
-        expect(error.code).to.equal(Aerospike.status.AEROSPIKE_ERR_PARAM)
+        expect(error.code).to.equal(Aerospike.status.ERR_PARAM)
         done()
       })
+    })
+
+    it('attaches event handlers to the stream', function (done) {
+      let query = client.query(helper.namespace, testSet)
+      let dataHandlerCalled = false
+      let stream = query.foreach(null,
+        (_record) => {
+          dataHandlerCalled = true
+          stream.abort()
+        },
+        (error) => { throw error },
+        () => {
+          expect(dataHandlerCalled).to.be(true)
+          done()
+        })
     })
 
     context('filter predicates', function () {
@@ -232,6 +282,12 @@ describe('Queries', function () {
         it('should match equal string values', function (done) {
           var args = { filters: [filter.equal('s', 'banana')] }
           verifyQueryResults(args, 'string match', done)
+        })
+
+        it('throws a type error if the comparison value is of invalid type', function () {
+          let fn = () => filter.equal('str', { foo: 'bar' })
+          expect(fn).to.throwException(ex =>
+            expect(ex).to.be.a(TypeError))
         })
       })
 
@@ -277,6 +333,12 @@ describe('Queries', function () {
           var args = { filters: [filter.contains('mks', 'banana', MAPKEYS)] }
           verifyQueryResults(args, 'string mapkeys match', done)
         })
+
+        it('throws a type error if the comparison value is of invalid type', function () {
+          let fn = () => filter.contains('list', { foo: 'bar' }, LIST)
+          expect(fn).to.throwException(ex =>
+            expect(ex).to.be.a(TypeError))
+        })
       })
 
       describe('filter.geoWithinGeoJSONRegion()', function () {
@@ -296,6 +358,12 @@ describe('Queries', function () {
           var region = new GeoJSON({type: 'Polygon', coordinates: [[[103, 1.3], [104, 1.3], [104, 1.4], [103, 1.4], [103, 1.3]]]})
           var args = { filters: [filter.geoWithinGeoJSONRegion('mg', region, MAPVALUES)] }
           verifyQueryResults(args, 'point map match', done)
+        })
+
+        it('accepts a plain object as GeoJSON', function (done) {
+          var region = {type: 'Polygon', coordinates: [[[103, 1.3], [104, 1.3], [104, 1.4], [103, 1.4], [103, 1.3]]]}
+          var args = { filters: [filter.geoWithinGeoJSONRegion('g', region)] }
+          verifyQueryResults(args, 'point match', done)
         })
       })
 
@@ -333,6 +401,12 @@ describe('Queries', function () {
           var point = new GeoJSON({type: 'Point', coordinates: [103.913, 1.308]})
           var args = { filters: [filter.geoContainsGeoJSONPoint('mg', point, MAPVALUES)] }
           verifyQueryResults(args, 'region map match', done)
+        })
+
+        it('accepts a plain object as GeoJSON', function (done) {
+          var point = {type: 'Point', coordinates: [103.913, 1.308]}
+          var args = { filters: [filter.geoContainsGeoJSONPoint('g', point)] }
+          verifyQueryResults(args, 'region match', done)
         })
       })
 
@@ -405,8 +479,26 @@ describe('Queries', function () {
     })
   })
 
+  describe('stream.abort()', function () {
+    it('should stop the query when the stream is aborted', function (done) {
+      let query = client.query(helper.namespace, testSet)
+      let stream = query.foreach()
+      let recordsReceived = 0
+      stream.on('data', () => {
+        recordsReceived++
+        if (recordsReceived === 5) {
+          stream.abort()
+        }
+      })
+      stream.on('end', () => {
+        expect(recordsReceived).to.be(5)
+        done()
+      })
+    })
+  })
+
   context('legacy scan interface', function () {
-    ;['UDF', 'concurrent', 'percentage', 'nobins', 'priority'].forEach(function (key) {
+    ;['UDF', 'concurrent', 'percentage', 'priority'].forEach(function (key) {
       it('should throw an exception if the query options contain key "' + key + '"', function () {
         var args = {}
         args[key] = 'foo'

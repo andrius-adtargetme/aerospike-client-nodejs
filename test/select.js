@@ -14,6 +14,8 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global expect, describe, it */
 
 const Aerospike = require('../lib/aerospike')
@@ -63,7 +65,7 @@ describe('client.select()', function () {
       if (err) throw err
 
       client.select({ns: helper.namespace, set: helper.set}, selected, function (err) {
-        expect(err.code).to.equal(status.AEROSPIKE_ERR_PARAM)
+        expect(err.code).to.equal(status.ERR_PARAM)
 
         client.remove(key, function (err) {
           if (err) throw err
@@ -77,17 +79,19 @@ describe('client.select()', function () {
     var key = keygen.string(helper.namespace, helper.set, {prefix: 'test/select/not_found/'})()
 
     client.select(key, ['i'], function (err, record) {
-      expect(err.code).to.equal(status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+      expect(err.code).to.equal(status.ERR_RECORD_NOT_FOUND)
       done()
     })
   })
 
   it('should read the record w/ a key send policy', function (done) {
-    var key = keygen.string(helper.namespace, helper.set, {prefix: 'test/select/'})()
-    var meta = {ttl: 1000}
-    var bins = recgen.record({i: valgen.integer(), s: valgen.string(), b: valgen.bytes()})()
-    var selected = ['i', 's']
-    var policy = {key: Aerospike.policy.key.SEND}
+    let key = keygen.string(helper.namespace, helper.set, {prefix: 'test/select/'})()
+    let meta = {ttl: 1000}
+    let bins = recgen.record({i: valgen.integer(), s: valgen.string(), b: valgen.bytes()})()
+    let selected = ['i', 's']
+    let policy = new Aerospike.ReadPolicy({
+      key: Aerospike.policy.key.SEND
+    })
 
     client.put(key, bins, meta, function (err) {
       if (err) throw err

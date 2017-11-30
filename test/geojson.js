@@ -14,6 +14,8 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global expect, describe, it */
 
 const Aerospike = require('../lib/aerospike')
@@ -35,6 +37,12 @@ describe('Aerospike.GeoJSON', function () {
 
     it('parses a GeoJSON string', function () {
       expect(new GeoJSON('{"type": "Point", "coordinates": [103.913, 1.308]}')).to.be.a(GeoJSON)
+    })
+
+    it('throws a type error if passed an invalid GeoJSON value', function () {
+      let fn = () => new GeoJSON(45)
+      expect(fn).to.throwException(ex =>
+        expect(ex).to.be.a(TypeError))
     })
   })
 
@@ -76,7 +84,9 @@ describe('Aerospike.GeoJSON', function () {
     const geojson = GeoJSON(point)
     const key = new Key(helper.namespace, helper.set, 'test/geojson')
     const meta = {ttl: 1000}
-    const policy = {exists: Aerospike.policy.exists.CREATE_OR_REPLACE}
+    const policy = new Aerospike.WritePolicy({
+      exists: Aerospike.policy.exists.CREATE_OR_REPLACE
+    })
 
     it('can put/get a GeoJSON bin value', function (done) {
       const record = {location: geojson}

@@ -1,7 +1,9 @@
-# Aerospike Node.js Client [![travis][travis-image]][travis-url] [![npm][npm-image]][npm-url] [![downloads][downloads-image]][downloads-url]
+# Aerospike Node.js Client [![travis][travis-image]][travis-url] [![codecov][codecov-image]][codecov-url] [![npm][npm-image]][npm-url] [![downloads][downloads-image]][downloads-url]
 
 [travis-image]: https://travis-ci.org/aerospike/aerospike-client-nodejs.svg?branch=master
 [travis-url]: https://travis-ci.org/aerospike/aerospike-client-nodejs
+[codecov-image]: https://codecov.io/gh/aerospike/aerospike-client-nodejs/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/aerospike/aerospike-client-nodejs
 [npm-image]: https://img.shields.io/npm/v/aerospike.svg
 [npm-url]: https://www.npmjs.com/package/aerospike
 [downloads-image]: https://img.shields.io/npm/dm/aerospike.svg
@@ -23,29 +25,23 @@ one of these OS releases. macOS is also supported.
   - [C Client Resolution](#C-Client-Resolution)
     - [Force Download](#Force-Download)
     - [Custom Search Path](#Custom-Search-Path)
+- [Documentation](#Documentation)
 - [Tests](#Tests)
-- [Examples](#Examples)
 - [Benchmarks](#Benchmarks)
-- [API Documentaion](#API-Documentation)
 
 <a name="Usage"></a>
 ## Usage
 
-The following is very simple example of how to write and read a record from Aerospike.
+The following is very simple example how to create, update, read and remove a
+record using the Aerospike database.
 
 ```js
 const Aerospike = require('aerospike')
-const op = Aerospike.operations
-const lists = Aerospike.lists
-const maps = Aerospike.maps
-const Key = Aerospike.Key
-const Double = Aerospike.Double
-const GeoJSON = Aerospike.GeoJSON
 
 let config = {
   hosts: '192.168.33.10:3000'
 }
-let key = new Key('test', 'demo', 'demo')
+let key = new Aerospike.Key('test', 'demo', 'demo')
 
 Aerospike.connect(config)
   .then(client => {
@@ -53,21 +49,23 @@ Aerospike.connect(config)
       i: 123,
       s: 'hello',
       b: Buffer.from('world'),
-      d: new Double(3.1415),
-      g: new GeoJSON({type: 'Point', coordinates: [103.913, 1.308]}),
+      d: new Aerospike.Double(3.1415),
+      g: new Aerospike.GeoJSON({type: 'Point', coordinates: [103.913, 1.308]}),
       l: [1, 'a', {x: 'y'}],
       m: {foo: 4, bar: 7}
     }
     let meta = { ttl: 10000 }
-    let policy = { exists: Aerospike.policy.exists.CREATE_OR_REPLACE }
+    let policy = new Aerospike.WritePolicy({
+      exists: Aerospike.policy.exists.CREATE_OR_REPLACE
+    })
 
     return client.put(key, bins, meta, policy)
       .then(() => {
         let ops = [
-          op.incr('i', 1),
-          op.read('i'),
-          lists.append('l', 'z'),
-          maps.removeByKey('m', 'bar')
+          Aerospike.operations.incr('i', 1),
+          Aerospike.operations.read('i'),
+          Aerospike.lists.append('l', 'z'),
+          Aerospike.maps.removeByKey('m', 'bar')
         ]
 
         return client.operate(key, ops)
@@ -85,11 +83,11 @@ Aerospike.connect(config)
                                  //      g: '{"type":"Point","coordinates":[103.913,1.308]}',
                                  //      l: [ 1, 'a', { x: 'y' }, 'z' ],
                                  //      m: { foo: 4 } }
-        client.close()
       })
+      .then(() => client.close())
       .catch(error => {
-        console.error(error)
         client.close()
+        return Promise.reject(error)
       })
   })
   .catch(error => console.log(error))
@@ -322,10 +320,41 @@ build directory:
 
     $ export PREFIX=~/aerospike-client-c/target/Linux-x86_64
 
+
+<a name="Documentation"></a>
+## Documentation
+
+Detailed documentation of the client's API can be found at
+[http://www.aerospike.com/apidocs/nodejs](https://www.aerospike.com/apidocs/nodejs).
+This documentation is build from the client's source using [JSDocs
+v3](http://usejsdoc.org/index.html) for every release.
+
+The API docs also contain a few basic tutorials:
+
+* [Getting Started - Connecting to an Aerospike database cluster](https://www.aerospike.com/apidocs/nodejs/tutorial-getting_started.html)
+* [Managing Aerospike connections in a Node cluster](https://www.aerospike.com/apidocs/nodejs/tutorial-node_clusters.html)
+* [Handling asynchronous database operations using Callbacks, Promises or async/await](https://www.aerospike.com/apidocs/nodejs/tutorial-callbacks_promises_async_await.html)
+
+A variety of additional example applications are provided in the
+[`examples`](examples) directory of this repository.
+
+The list of [backward incompatible API changes](docs/api-changes.md) by release,
+to the API by release.
+
+### API Versioning
+
+The Aerospike Node.js client library follows [semantic versioning](http://semver.org/).
+Changes which break backwards compatibility will be indicated by an increase in
+the major version number. Minor and patch releases, which increment only the
+second and third version number, will always be backwards compatible.
+
+
 <a name="Tests"></a>
 ## Tests
 
-This module is packaged with a number of tests in the `test` directory.
+The client includes a comprehensive test suite using
+[Mocha](http://mochajs.org). The tests can be found in the ['test'](test)
+directory.
 
 Before running the tests, you need to update the dependencies:
 
@@ -335,14 +364,9 @@ To run all the test cases:
 
     $ npm test
 
-For details on the tests, see [`test/README.md`](test/README.md).
+To run the tests and also report on test coverage:
 
-
-<a name="Examples"></a>
-## Examples
-
-A variety of example applications are provided in the [`examples`](examples) directory.
-See the [`examples/README.md`](examples/README.md) for details.
+    $ npm run coverage
 
 <a name="Benchmarks"></a>
 ## Benchmarks
@@ -350,25 +374,6 @@ See the [`examples/README.md`](examples/README.md) for details.
 Benchmark utilies are provided in the [`benchmarks`](benchmarks) directory.
 See the [`benchmarks/README.md`](benchmarks/README.md) for details.
 
-<a name="API-Documentation"></a>
-## API Documentation
-
-API documentation is generated from the JS source code using JSDocs v3 and is
-hosted at [http://www.aerospike.com/apidocs/nodejs](http://www.aerospike.com/apidocs/nodejs).
-
-<a name="Versioning"></a>
-## API Versioning
-
-The Aerospike Node.js client library follows [semantic versioning](http://semver.org/).
-Changes which break backwards compatibility will be indicated by an increase in
-the major version number. Minor and patch releases, which increment only the
-second and third version number, will always be backwards compatible.
-
-<a name="API-Changes"></a>
-### Backward Incompatible Changes
-
-The documentation contains a list of [backward incompatible changes](docs/api-changes.md)
-to the API by release.
 
 ## License
 

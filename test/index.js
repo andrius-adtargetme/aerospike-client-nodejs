@@ -42,7 +42,7 @@ context('secondary indexes', function () {
         client.infoAll(sindex, function (err, info) {
           if (err) {
             switch (err.code) {
-              case Aerospike.status.AEROSPIKE_ERR_INDEX_NOT_FOUND:
+              case Aerospike.status.ERR_INDEX_NOT_FOUND:
                 resolve(false)
                 break
               default:
@@ -77,21 +77,24 @@ context('secondary indexes', function () {
     })
 
     it('should create an integer index with info policy', function (done) {
-      var options = {
+      let options = {
         ns: helper.namespace,
         set: helper.set,
         bin: testIndex.bin,
         index: testIndex.name,
         datatype: Aerospike.indexDataType.NUMERIC
       }
-      var policy = { timeout: 100 }
-      client.createIndex(options, policy, function (err) {
-        expect(err).not.to.be.ok()
+      let policy = new Aerospike.InfoPolicy({
+        totalTimeout: 100
+      })
+
+      client.createIndex(options, policy, function (error) {
+        if (error) throw error
         verifyIndexExists(helper.namespace, testIndex.name, done)
       })
     })
 
-    it('re-creating an index with identical options does not return an error', function () {
+    it('re-creating an index with identical options returns an error', function () {
       let options = {
         ns: helper.namespace,
         set: helper.set,
@@ -102,7 +105,14 @@ context('secondary indexes', function () {
       return client.createIndex(options)
         .then(job => job.wait(10))
         .then(() => client.createIndex(options)
-          .then(job => job.wait(10)))
+          .then(job => Promise.reject(new Error('Recreating existing index should have returned an error')))
+          .catch(error => {
+            if (error.code === Aerospike.status.ERR_INDEX_FOUND) {
+              // All good!
+            } else {
+              return Promise.reject(error)
+            }
+          }))
     })
   })
 

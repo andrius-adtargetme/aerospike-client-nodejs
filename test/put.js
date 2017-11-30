@@ -14,6 +14,8 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global expect, describe, it, context */
 
 const Aerospike = require('../lib/aerospike')
@@ -32,7 +34,7 @@ describe('client.put()', function () {
   var client = helper.client
 
   it('should write and validate records', function (done) {
-    var meta = {ttl: 1000, exists: Aerospike.policy.exists.CREATE_OR_REPLACE}
+    var meta = {ttl: 1000}
     var putAndGet = function (key, bins, cb) {
       client.put(key, bins, meta, function (err) {
         if (err) throw err
@@ -107,8 +109,10 @@ describe('client.put()', function () {
   })
 
   context('bins with various data types', function () {
-    var meta = { ttl: 600 }
-    var policy = { exists: Aerospike.policy.exists.CREATE_OR_REPLACE }
+    let meta = { ttl: 600 }
+    let policy = new Aerospike.WritePolicy({
+      exists: Aerospike.policy.exists.CREATE_OR_REPLACE
+    })
 
     function putGetVerify (bins, expected, done) {
       var key = keygen.string(helper.namespace, helper.set, {prefix: 'test/put/'})()
@@ -216,10 +220,10 @@ describe('client.put()', function () {
         var record = { valid: 123, invalid: undefined }
 
         client.put(key, record, function (err) {
-          expect(err.code).to.equal(status.AEROSPIKE_ERR_PARAM)
+          expect(err.code).to.equal(status.ERR_PARAM)
 
           client.remove(key, function (err, key) {
-            expect(err.code).to.equal(status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+            expect(err.code).to.equal(status.ERR_RECORD_NOT_FOUND)
             done()
           })
         })
@@ -230,10 +234,10 @@ describe('client.put()', function () {
         var record = { valid: 'true', invalid: true }
 
         client.put(key, record, function (err) {
-          expect(err.code).to.equal(status.AEROSPIKE_ERR_PARAM)
+          expect(err.code).to.equal(status.ERR_PARAM)
 
           client.remove(key, function (err, key) {
-            expect(err.code).to.equal(status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+            expect(err.code).to.equal(status.ERR_RECORD_NOT_FOUND)
             done()
           })
         })
@@ -330,7 +334,7 @@ describe('client.put()', function () {
           expect(key3).to.eql(key)
 
           client.get(key3, function (err, record4) {
-            expect(err.code).to.equal(status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+            expect(err.code).to.equal(status.ERR_RECORD_NOT_FOUND)
 
             client.put(record4.key, bins, meta, function (err, key5) {
               if (err) throw err
@@ -351,6 +355,32 @@ describe('client.put()', function () {
           })
         })
       })
+    })
+  })
+
+  it('should fail with a parameter error if gen is invalid', function (done) {
+    const key = keygen.string(helper.namespace, helper.set, {prefix: 'test/put/'})()
+    const bins = recgen.record({i: valgen.integer(), s: valgen.string()})()
+    const meta = {
+      gen: 'generation1'
+    }
+
+    client.put(key, bins, meta, error => {
+      expect(error.code).to.equal(Aerospike.status.ERR_PARAM)
+      done()
+    })
+  })
+
+  it('should fail with a parameter error if ttl is invalid', function (done) {
+    const key = keygen.string(helper.namespace, helper.set, {prefix: 'test/put/'})()
+    const bins = recgen.record({i: valgen.integer(), s: valgen.string()})()
+    const meta = {
+      ttl: 'time-to-live'
+    }
+
+    client.put(key, bins, meta, error => {
+      expect(error.code).to.equal(Aerospike.status.ERR_PARAM)
+      done()
     })
   })
 
@@ -428,12 +458,15 @@ describe('client.put()', function () {
 
   context('gen policy', function () {
     it('updates record if generation matches', function () {
-      var key = keygen.integer(helper.namespace, helper.set)()
+      let key = keygen.integer(helper.namespace, helper.set)()
+      let policy = new Aerospike.WritePolicy({
+        gen: Aerospike.policy.gen.EQ
+      })
 
       return client.put(key, { i: 1 })
         .then(() => client.get(key))
         .then(record => expect(record.gen).to.be(1))
-        .then(() => client.put(key, { i: 2 }, { gen: 1 }, { gen: Aerospike.policy.gen.EQ }))
+        .then(() => client.put(key, { i: 2 }, { gen: 1 }, policy))
         .then(() => client.get(key))
         .then(record => {
           expect(record.bins).to.eql({ i: 2 })
@@ -443,13 +476,16 @@ describe('client.put()', function () {
     })
 
     it('does not update record if generation does not match', function () {
-      var key = keygen.integer(helper.namespace, helper.set)()
+      let key = keygen.integer(helper.namespace, helper.set)()
+      let policy = new Aerospike.WritePolicy({
+        gen: Aerospike.policy.gen.EQ
+      })
 
       return client.put(key, { i: 1 })
         .then(() => client.get(key))
         .then(record => expect(record.gen).to.be(1))
-        .then(() => client.put(key, { i: 2 }, { gen: 99 }, { gen: Aerospike.policy.gen.EQ }))
-        .catch(err => expect(err.code).to.be(status.AEROSPIKE_ERR_RECORD_GENERATION))
+        .then(() => client.put(key, { i: 2 }, { gen: 99 }, policy))
+        .catch(err => expect(err.code).to.be(status.ERR_RECORD_GENERATION))
         .then(() => client.get(key))
         .then(record => {
           expect(record.bins).to.eql({ i: 1 })

@@ -14,7 +14,9 @@
 // limitations under the License.
 // *****************************************************************************
 
-const aerospike = require('../../lib/aerospike')
+'use strict'
+
+const Aerospike = require('../../lib/aerospike')
 const yargs = require('yargs')
 const fs = require('fs')
 const path = require('path')
@@ -47,7 +49,7 @@ var parser = yargs
     },
     log: {
       alias: 'l',
-      default: aerospike.log.INFO,
+      default: Aerospike.log.INFO,
       describe: 'Log level [0-5]'
     },
     log_file: {
@@ -87,13 +89,24 @@ function testDir () {
 }
 
 options.getConfig = function () {
-  var config = {
+  let defaultPolicy = {
+    totalTimeout: options.timeout
+  }
+  let config = {
     log: {
       level: options.log,
       file: options.log_file
     },
     policies: {
-      timeout: options.timeout
+      apply: defaultPolicy,
+      batch: defaultPolicy,
+      info: defaultPolicy,
+      operate: defaultPolicy,
+      query: defaultPolicy,
+      read: defaultPolicy,
+      remove: defaultPolicy,
+      scan: defaultPolicy,
+      write: defaultPolicy
     },
     modlua: {
       userPath: testDir()

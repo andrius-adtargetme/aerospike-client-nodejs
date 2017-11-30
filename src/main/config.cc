@@ -90,91 +90,74 @@ int config_from_jsobject(as_config* config, Local<Object> configObj, const LogIn
 		return AS_NODE_PARAM_ERR;
 	}
 
-	if (configObj->Has(Nan::New("policies").ToLocalChecked())) {
+	Local<Value> policies_val = configObj->Get(Nan::New("policies").ToLocalChecked());
+	if (policies_val->IsObject()) {
+		Local<Object> policies_obj = policies_val->ToObject();
+		as_policies *policies = &config->policies;
 
-		Local<Value> policy_val = configObj->Get(Nan::New("policies").ToLocalChecked());
-
-		if (policy_val->IsObject()){
-			Local<Object> policies = policy_val->ToObject();
-			if ((rc = get_optional_uint32_property(&config->policies.timeout, NULL, policies, "timeout", log)) != AS_NODE_PARAM_OK) {
+		Local<Value> policy_val = policies_obj->Get(Nan::New("apply").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = applypolicy_from_jsobject(&policies->apply, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
 				return rc;
-			}
-			if ((rc = get_optional_uint32_property(&config->policies.retry, NULL, policies, "retry", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.key, NULL, policies, "key", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.exists, NULL, policies, "exists", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.gen, NULL, policies, "gen", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.replica, NULL, policies, "replica", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.consistency_level, NULL, policies, "consistencyLevel", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if ((rc = get_optional_uint32_property((uint32_t*) &config->policies.commit_level, NULL, policies, "commitLevel", log)) != AS_NODE_PARAM_OK) {
-				return rc;
-			}
-			if (policies->Has(Nan::New("read").ToLocalChecked())) {
-				Local<Value> readpolicy = policies->Get(Nan::New("read").ToLocalChecked());
-				if ((rc = readpolicy_from_jsobject(&config->policies.read, readpolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("write").ToLocalChecked())) {
-				Local<Value> writepolicy = policies->Get(Nan::New("write").ToLocalChecked());
-				if ((rc = writepolicy_from_jsobject(&config->policies.write, writepolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("remove").ToLocalChecked())) {
-				Local<Value> removepolicy = policies->Get(Nan::New("remove").ToLocalChecked());
-				if ((rc = removepolicy_from_jsobject(&config->policies.remove, removepolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("batch").ToLocalChecked())) {
-				Local<Value> batchpolicy = policies->Get(Nan::New("batch").ToLocalChecked());
-				if ((rc = batchpolicy_from_jsobject(&config->policies.batch, batchpolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("operate").ToLocalChecked())) {
-				Local<Value> operatepolicy = policies->Get(Nan::New("operate").ToLocalChecked());
-				if ((rc = operatepolicy_from_jsobject(&config->policies.operate, operatepolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("info").ToLocalChecked())) {
-				Local<Value> infopolicy = policies->Get(Nan::New("info").ToLocalChecked());
-				if ((rc = infopolicy_from_jsobject(&config->policies.info, infopolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("admin").ToLocalChecked())) {
-				Local<Value> adminpolicy = policies->Get(Nan::New("admin").ToLocalChecked());
-				if ((rc = adminpolicy_from_jsobject(&config->policies.admin, adminpolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("scan").ToLocalChecked())) {
-				Local<Value> scanpolicy = policies->Get(Nan::New("scan").ToLocalChecked());
-				if ((rc = scanpolicy_from_jsobject(&config->policies.scan, scanpolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
-			}
-			if (policies->Has(Nan::New("query").ToLocalChecked())) {
-				Local<Value> querypolicy = policies->Get(Nan::New("query").ToLocalChecked());
-				if ((rc = querypolicy_from_jsobject(&config->policies.query, querypolicy->ToObject(), log)) != AS_NODE_PARAM_OK) {
-					return rc;
-				}
 			}
 		}
+
+		policy_val = policies_obj->Get(Nan::New("batch").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = batchpolicy_from_jsobject(&policies->batch, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("info").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = infopolicy_from_jsobject(&policies->info, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("operate").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = operatepolicy_from_jsobject(&policies->operate, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("read").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = readpolicy_from_jsobject(&policies->read, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("remove").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = removepolicy_from_jsobject(&policies->remove, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("scan").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = scanpolicy_from_jsobject(&policies->scan, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("query").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = querypolicy_from_jsobject(&policies->query, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
+		policy_val = policies_obj->Get(Nan::New("write").ToLocalChecked());
+		if (policy_val->IsObject()) {
+			if ((rc = writepolicy_from_jsobject(&policies->write, policy_val->ToObject(), log)) != AS_NODE_PARAM_OK) {
+				return rc;
+			}
+		}
+
 		as_v8_debug(log, "Parsing global policies: success");
 	}
 

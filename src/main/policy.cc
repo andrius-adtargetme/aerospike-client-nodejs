@@ -42,6 +42,9 @@ int infopolicy_from_jsobject(as_policy_info* policy, Local<Object> obj, const Lo
 	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
+	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "totalTimeout", log)) != AS_NODE_PARAM_OK) {
+		return rc;
+	}
 	if ((rc = get_optional_bool_property(&policy->send_as_is, NULL, obj, "sendAsIs", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
@@ -52,13 +55,21 @@ int infopolicy_from_jsobject(as_policy_info* policy, Local<Object> obj, const Lo
 	return  AS_NODE_PARAM_OK;
 }
 
-int adminpolicy_from_jsobject(as_policy_admin* policy, Local<Object> obj, const LogInfo* log)
+int basepolicy_from_jsobject(as_policy_base* policy, Local<Object> obj, const LogInfo* log)
 {
 	int rc = 0;
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = get_optional_uint32_property(&policy->socket_timeout, NULL, obj, "socketTimeout", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
-	as_v8_detail(log, "Parsing admin policy: success");
+	if ((rc = get_optional_uint32_property(&policy->total_timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+		return rc;
+	}
+	if ((rc = get_optional_uint32_property(&policy->total_timeout, NULL, obj, "totalTimeout", log)) != AS_NODE_PARAM_OK) {
+		return rc;
+	}
+	if ((rc = get_optional_uint32_property(&policy->max_retries, NULL, obj, "retry", log)) != AS_NODE_PARAM_OK) {
+		return rc;
+	}
 	return AS_NODE_PARAM_OK;
 }
 
@@ -66,13 +77,10 @@ int operatepolicy_from_jsobject(as_policy_operate* policy, Local<Object> obj, co
 {
 	int rc = 0;
 	as_policy_operate_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->gen, NULL, obj, "gen", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->retry, NULL, obj, "retry", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->key, NULL, obj, "key", log)) != AS_NODE_PARAM_OK) {
@@ -98,7 +106,7 @@ int batchpolicy_from_jsobject(as_policy_batch* policy, Local<Object> obj, const 
 {
 	int rc = 0;
 	as_policy_batch_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->consistency_level, NULL, obj, "consistencyLevel", log)) != AS_NODE_PARAM_OK) {
@@ -118,13 +126,10 @@ int removepolicy_from_jsobject(as_policy_remove* policy, Local<Object> obj, cons
 {
 	int rc = 0;
 	as_policy_remove_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->generation, NULL, obj, "generation", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->retry, NULL, obj, "retry", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->key, NULL, obj, "key", log)) != AS_NODE_PARAM_OK) {
@@ -147,10 +152,7 @@ int readpolicy_from_jsobject(as_policy_read* policy, Local<Object> obj, const Lo
 {
 	int rc = 0;
 	as_policy_read_init( policy );
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->retry, NULL, obj, "retry", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->key, NULL, obj, "key", log)) != AS_NODE_PARAM_OK) {
@@ -170,13 +172,10 @@ int writepolicy_from_jsobject(as_policy_write* policy, Local<Object> obj, const 
 {
 	int rc = 0;
 	as_policy_write_init( policy );
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->gen, NULL, obj, "gen", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->retry, NULL, obj, "retry", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property(&policy->compression_threshold, NULL, obj, "compressionThreshold", log)) != AS_NODE_PARAM_OK) {
@@ -202,7 +201,10 @@ int applypolicy_from_jsobject(as_policy_apply* policy, Local<Object> obj, const 
 {
 	int rc = 0;
 	as_policy_apply_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
+		return rc;
+	}
+	if ((rc = get_optional_uint32_property((uint32_t*) &policy->gen, NULL, obj, "gen", log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_uint32_property((uint32_t*) &policy->key, NULL, obj, "key", log)) != AS_NODE_PARAM_OK) {
@@ -225,10 +227,7 @@ int querypolicy_from_jsobject(as_policy_query* policy, Local<Object> obj, const 
 {
 	int rc = 0;
 	as_policy_query_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->socket_timeout, NULL, obj, "socketTimeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	as_v8_detail( log, "Parsing query policy : success");
@@ -239,10 +238,7 @@ int scanpolicy_from_jsobject(as_policy_scan* policy, Local<Object> obj, const Lo
 {
 	int rc = 0;
 	as_policy_scan_init(policy);
-	if ((rc = get_optional_uint32_property(&policy->timeout, NULL, obj, "timeout", log)) != AS_NODE_PARAM_OK) {
-		return rc;
-	}
-	if ((rc = get_optional_uint32_property(&policy->socket_timeout, NULL, obj, "socketTimeout", log)) != AS_NODE_PARAM_OK) {
+	if ((rc = basepolicy_from_jsobject(&policy->base, obj, log)) != AS_NODE_PARAM_OK) {
 		return rc;
 	}
 	if ((rc = get_optional_bool_property(&policy->durable_delete, NULL, obj, "durableDelete", log)) != AS_NODE_PARAM_OK) {

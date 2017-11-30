@@ -14,6 +14,8 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global context, expect, describe, it */
 
 const Aerospike = require('../lib/aerospike')
@@ -22,7 +24,58 @@ const helper = require('./test_helper')
 const keygen = helper.keygen
 
 describe('Client', function () {
-  describe('Client#isConnected', function () {
+  describe('#connect', function () {
+    it('return self', function () {
+      const client = new Client(helper.config)
+      return client.connect()
+        .then(client2 => {
+          expect(client2).to.equal(client)
+          client.close()
+        })
+    })
+
+    it('should call the callback asynchronously', function (done) {
+      const client = new Client(helper.config)
+      let async = false
+      client.connect(error => {
+        if (error) throw error
+        expect(async).to.equal(true)
+        client.close(false)
+        done()
+      })
+      async = true
+    })
+
+    it('should return a Promise if callback without callback', function () {
+      const client = new Client(helper.config)
+      const promise = client.connect()
+      expect(promise).to.be.a(Promise)
+      return promise.then(() => client.close(false))
+    })
+  })
+
+  describe('#close', function () {
+    it('should be a no-op if close is called after connection error', function (done) {
+      const client = new Client({hosts: '127.0.0.1:0'})
+      client.connect(error => {
+        expect(error.message).to.match(/Failed to connect/)
+        client.close(false)
+        done()
+      })
+    })
+
+    it('should be possible to call close multiple times', function (done) {
+      const client = new Client(helper.config)
+      client.connect(error => {
+        expect(error).to.be(null)
+        client.close(false)
+        client.close(false)
+        done()
+      })
+    })
+  })
+
+  describe('#isConnected', function () {
     context('without tender health check', function () {
       it('returns false if the client is not connected', function () {
         var client = new Client(helper.config)
@@ -71,7 +124,7 @@ describe('Client', function () {
       config.clusterName = 'notAValidClusterName'
       var client = new Client(config)
       client.connect(function (err) {
-        expect(err.code).to.be(Aerospike.status.AEROSPIKE_ERR_CLIENT)
+        expect(err.code).to.be(Aerospike.status.ERR_CLIENT)
         client.close(false)
         done()
       })
@@ -79,13 +132,6 @@ describe('Client', function () {
   })
 
   context('callbacks', function () {
-    it.skip('should raise an error when calling a command without passing a callback function', function () {
-      expect(function () { helper.client.truncate('foo', 'bar') }).to.throwException(function (e) {
-        expect(e).to.be.a(TypeError)
-        expect(e.message).to.be('"callback" argument must be a function')
-      })
-    })
-
     // Execute a client command on a client instance that has been setup to
     // trigger an error; check that the error callback occurs asynchronously,
     // i.e. only after the command function has returned.
@@ -125,14 +171,14 @@ describe('Client', function () {
         if (err) throw err
         var errorCheck = function (err) {
           expect(err).to.be.an(Error)
-          expect(err.code).to.equal(Aerospike.status.AEROSPIKE_ERR_NO_MORE_CONNECTIONS)
+          expect(err.code).to.equal(Aerospike.status.ERR_NO_MORE_CONNECTIONS)
         }
         assertErrorCbAsync(client, errorCheck, done)
       })
     })
   })
 
-  describe('Client#captureStackTraces', function () {
+  describe('#captureStackTraces', function () {
     it('should capture stack traces that show the command being called', function (done) {
       var client = helper.client
       var key = keygen.string(helper.namespace, helper.set)()

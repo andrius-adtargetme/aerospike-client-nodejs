@@ -55,7 +55,12 @@ context('registering/unregistering UDF modules', function () {
   })
 
   it('should register a module with an info policy', function (done) {
-    var policy = { timeout: 1000, sendAsIs: true, checkBounds: false }
+    let policy = new Aerospike.InfoPolicy({
+      timeout: 1000,
+      sendAsIs: true,
+      checkBounds: false
+    })
+
     client.udfRegister(filename, policy, function (err, registerJob) {
       if (err) throw err
       registerJob.wait(10, function (err) {
@@ -69,7 +74,12 @@ context('registering/unregistering UDF modules', function () {
   })
 
   it('should register a module as Lua language with an info policy', function (done) {
-    var policy = { timeout: 1000, sendAsIs: true, checkBounds: false }
+    let policy = new Aerospike.InfoPolicy({
+      timeout: 1000,
+      sendAsIs: true,
+      checkBounds: false
+    })
+
     client.udfRegister(filename, Aerospike.language.LUA, policy, function (err, registerJob) {
       if (err) throw err
       registerJob.wait(10, function (err) {
@@ -92,21 +102,21 @@ context('registering/unregistering UDF modules', function () {
   context('error handling', function () {
     it('should fail to register an non-existent module', function (done) {
       client.udfRegister('no-such-udf.lua', function (err) {
-        expect(err.code).to.be(Aerospike.status.AEROSPIKE_ERR)
+        expect(err.code).to.be(Aerospike.status.ERR_CLIENT)
         done()
       })
     })
 
     it('should fail to register module with invalid language', function (done) {
       client.udfRegister(filename, -99, function (err) {
-        expect(err.code).to.be(Aerospike.status.AEROSPIKE_ERR_PARAM)
+        expect(err.code).to.be(Aerospike.status.ERR_PARAM)
         done()
       })
     })
 
     it('should fail to remove a non-existent module', function (done) {
       client.udfRemove('no-such-udf.lua', function (err) {
-        expect(err.code).to.be(Aerospike.status.AEROSPIKE_ERR_UDF)
+        expect(err.code).to.be(Aerospike.status.ERR_UDF)
         done()
       })
     })

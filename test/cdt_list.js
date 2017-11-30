@@ -14,7 +14,9 @@
 // limitations under the License.
 // *****************************************************************************
 
-/* global expect, describe, it */
+'use strict'
+
+/* global expect, describe, it, beforeEach */
 
 const Aerospike = require('../lib/aerospike')
 const helper = require('./test_helper')
@@ -28,8 +30,10 @@ describe('client.operate() - CDT List operations', function () {
 
   function setup (record, done) {
     key = helper.keygen.string(helper.namespace, helper.set, {prefix: 'cdt_list/'})()
-    var meta = { ttl: 600 }
-    var policy = { exists: Aerospike.policy.exists.CREATE_OR_REPLACE }
+    let meta = { ttl: 600 }
+    let policy = new Aerospike.WritePolicy({
+      exists: Aerospike.policy.exists.CREATE_OR_REPLACE
+    })
     client.put(key, record, meta, policy, function (err) {
       if (err) throw err
       done()
@@ -81,7 +85,7 @@ describe('client.operate() - CDT List operations', function () {
       var operation = lists.appendItems('list', 99)
       setup(record, function () {
         client.operate(key, [operation], function (err, result) {
-          expect(err.code).to.equal(status.AEROSPIKE_ERR_PARAM)
+          expect(err.code).to.equal(status.ERR_PARAM)
           teardown(done)
         })
       })
@@ -112,7 +116,7 @@ describe('client.operate() - CDT List operations', function () {
       var operation = lists.insertItems('list', 2, 99)
       setup(record, function () {
         client.operate(key, [operation], function (err, result) {
-          expect(err.code).to.equal(status.AEROSPIKE_ERR_PARAM)
+          expect(err.code).to.equal(status.ERR_PARAM)
           teardown(done)
         })
       })
@@ -219,7 +223,7 @@ describe('client.operate() - CDT List operations', function () {
       var operation = lists.get('list', 99)
       setup(record, function () {
         client.operate(key, [operation], function (err, result) {
-          expect(err.code).to.equal(status.AEROSPIKE_ERR_REQUEST_INVALID)
+          expect(err.code).to.equal(status.ERR_REQUEST_INVALID)
           teardown(done)
         })
       })
@@ -244,13 +248,26 @@ describe('client.operate() - CDT List operations', function () {
     })
   })
 
-  // pending server-side support for list increment operation [AER-5149]
-  describe.skip('lists.increment', function () {
+  describe('lists.increment', function () {
+    beforeEach(function () {
+      if (!helper.cluster.build_gte('3.15.0')) {
+        this.skip('list increment operation not supported')
+      }
+    })
+
     it('increments the element at the specified index and returns the final value', function (done) {
       var record = { list: [1, 2, 3, 4, 5] }
       var operation = lists.increment('list', 1, 3)
       var expectedResult = { list: 5 }
       var expectedRecord = { list: [1, 5, 3, 4, 5] }
+      verifyOperation(record, operation, expectedResult, expectedRecord, done)
+    })
+
+    it('increments the element at the specified index by one and returns the final value', function (done) {
+      var record = { list: [1, 2, 3, 4, 5] }
+      var operation = lists.increment('list', 2)
+      var expectedResult = { list: 4 }
+      var expectedRecord = { list: [1, 2, 4, 4, 5] }
       verifyOperation(record, operation, expectedResult, expectedRecord, done)
     })
   })

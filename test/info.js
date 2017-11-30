@@ -59,7 +59,7 @@ context('Info commands', function () {
 
     it('should return a client error if the client is not connected', function (done) {
       Aerospike.client(helper.config).info('status', host, error => {
-        expect(error.code).to.be(Aerospike.status.AEROSPIKE_ERR_CLIENT)
+        expect(error.code).to.be(Aerospike.status.ERR_CLIENT)
         done()
       })
     })
@@ -94,6 +94,12 @@ context('Info commands', function () {
         })
         done()
       })
+    })
+
+    it('does not require an info command', function () {
+      return client.infoAll()
+        .then(results =>
+          expect(Array.isArray(results)).to.be(true))
     })
 
     it('returns a Promise that resolves to the result of the info query', function () {

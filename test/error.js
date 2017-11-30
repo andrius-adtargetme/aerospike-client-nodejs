@@ -14,9 +14,11 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global expect, describe, it */
 
-const AerospikeError = require('../lib/aerospike_error')
+const AerospikeError = require('../lib/error')
 require('./test_helper.js')
 
 describe('AerospikeError', function () {
@@ -55,6 +57,11 @@ describe('AerospikeError', function () {
       expect(subject.func).to.be('connect')
       expect(subject.file).to.be('lib/client.js')
       expect(subject.line).to.be(101)
+    })
+
+    it('returns an AerospikeError instance unmodified', function () {
+      let error = new AerospikeError(-1, 'client error', 'connect', 'lib/client.js', 101)
+      expect(AerospikeError.fromASError(error)).to.equal(error)
     })
   })
 

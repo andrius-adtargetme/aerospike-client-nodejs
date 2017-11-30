@@ -39,7 +39,9 @@ context('Operations', function () {
       double1: 1.23,
       double2: new Double(1.0)
     }
-    let policy = { exists: Aerospike.policy.exists.CREATE_OR_REPLACE }
+    let policy = new Aerospike.WritePolicy({
+      exists: Aerospike.policy.exists.CREATE_OR_REPLACE
+    })
     let meta = { ttl: 60 }
     return client.put(key, bins, meta, policy)
   })
@@ -106,13 +108,25 @@ context('Operations', function () {
           })
       })
 
+      it('can be called using the "incr" alias', function () {
+        let ops = [
+          op.incr('int', 432)
+        ]
+
+        return client.operate(key, ops)
+          .then(() => client.get(key))
+          .then(record => {
+            expect(record.bins['int']).to.equal(555)
+          })
+      })
+
       it('returns a parameter error when trying to add a string value', function () {
         let ops = [
           op.add('int', 'abc')
         ]
 
         return client.operate(key, ops)
-          .catch(error => expect(error.code).to.equal(status.AEROSPIKE_ERR_PARAM))
+          .catch(error => expect(error.code).to.equal(status.ERR_PARAM))
       })
     })
 
@@ -135,7 +149,7 @@ context('Operations', function () {
         ]
 
         return client.operate(key, ops)
-          .catch(error => expect(error.code).to.equal(status.AEROSPIKE_ERR_PARAM))
+          .catch(error => expect(error.code).to.equal(status.ERR_PARAM))
       })
     })
 
@@ -158,7 +172,7 @@ context('Operations', function () {
         ]
 
         return client.operate(key, ops)
-          .catch(error => expect(error.code).to.equal(status.AEROSPIKE_ERR_PARAM))
+          .catch(error => expect(error.code).to.equal(status.ERR_PARAM))
       })
     })
 
@@ -212,6 +226,24 @@ context('Operations', function () {
           })
         })
       })
+    })
+
+    it('sends meta data and applies an operate policy', function () {
+      let ops = [
+        op.add('int', 42)
+      ]
+      let meta = {
+        gen: 12345
+      }
+      let policy = new Aerospike.OperatePolicy({
+        gen: Aerospike.policy.gen.EQ
+      })
+
+      client.operate(key, ops, meta, policy)
+        .catch(error => {
+          expect(error.code).to.be(Aerospike.status.ERR_RECORD_GENERATION)
+          return Promise.resolve(true)
+        })
     })
 
     it('calls the callback function with the results of the operation', function (done) {

@@ -44,7 +44,7 @@ describe('client.batchGet()', function () {
             expect(results.length).to.equal(numberOfRecords)
             results.forEach(result => {
               let putRecord = records.find(record => record.key.key === result.record.key.key)
-              expect(result.status).to.equal(Aerospike.status.AEROSPIKE_OK)
+              expect(result.status).to.equal(Aerospike.status.OK)
               expect(result.record.bins).to.eql(putRecord.bins)
             })
           })
@@ -59,7 +59,7 @@ describe('client.batchGet()', function () {
       expect(err).not.to.be.ok()
       expect(results.length).to.equal(numberOfRecords)
       results.forEach(function (result) {
-        expect(result.status).to.equal(Aerospike.status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+        expect(result.status).to.equal(Aerospike.status.ERR_RECORD_NOT_FOUND)
       })
       done()
     })

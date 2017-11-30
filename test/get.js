@@ -14,6 +14,8 @@
 // limitations under the License.
 // *****************************************************************************
 
+'use strict'
+
 /* global expect, describe, it */
 
 const Aerospike = require('../lib/aerospike')
@@ -24,7 +26,6 @@ const metagen = helper.metagen
 const recgen = helper.recgen
 
 const status = Aerospike.status
-const policy = Aerospike.policy
 
 describe('client.get()', function () {
   var client = helper.client
@@ -50,27 +51,24 @@ describe('client.get()', function () {
     var key = keygen.string(helper.namespace, helper.set, {prefix: 'test/not_found/'})()
 
     client.get(key, function (err, record) {
-      expect(err.code).to.equal(status.AEROSPIKE_ERR_RECORD_NOT_FOUND)
+      expect(err.code).to.equal(status.ERR_RECORD_NOT_FOUND)
       done()
     })
   })
 
-  it('should read the record with a key send policy', function (done) {
-    var key = keygen.string(helper.namespace, helper.set, {prefix: 'test/get/'})()
-    var meta = metagen.constant({ttl: 1000})()
-    var record = recgen.constant({i: 123, s: 'abc'})()
-    var pol = { key: policy.key.SEND }
-
-    client.put(key, record, meta, function (err, key) {
-      if (err) throw err
-      client.get(key, pol, function (err, record) {
-        if (err) throw err
-        client.remove(key, function (err, key) {
-          if (err) throw err
-          done()
-        })
-      })
+  it('should read the record using a read policy', function () {
+    let key = keygen.string(helper.namespace, helper.set, {prefix: 'test/get/'})()
+    let meta = metagen.constant({ttl: 1000})()
+    let bins = recgen.constant({i: 123, s: 'abc'})()
+    let policy = new Aerospike.ReadPolicy({
+      totalTimeout: 1000,
+      key: Aerospike.policy.key.SEND,
+      consistencyLevel: Aerospike.policy.consistencyLevel.ALL
     })
+
+    return client.put(key, bins, meta)
+      .then(() => client.get(key, policy))
+      .then(() => client.remove(key))
   })
 
   it('should return the TTL for a never expiring record as Aerospike.ttl.NEVER_EXPIRE', function (done) {
